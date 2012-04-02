@@ -1,3 +1,7 @@
 OtherFiles/NtfsDesktopSearch/
 OtherFiles/ext3grep-0.1.0/
 .DS_Store
+
+src/tags
+
+src/a.out
