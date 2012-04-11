@@ -26,6 +26,7 @@
 #include "locate.h"
 
 typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
 
 // Super block accessors
 int inode_count(ext3_super_block const& super_block) { return super_block.s_inodes_count; }
@@ -66,6 +67,30 @@ int journal_maxlen_;
 int journal_first_;
 int journal_sequence_;
 int journal_start_;
+
+// Globally used variables
+uint64_t** inode_bitmap;
+uint64_t** block_bitmap;
+Inode** all_inodes;
+/*
+#if USE_MMAP
+void** all_mmaps;
+#endif
+/*
+ext3_group_desc* group_descriptor_table;
+char* inodes_buf;
+std::set<std::string> accepted_filenames;
+int no_filtering = 0;
+std::string device_name;
+uint32_t wrapped_journal_sequence = 0;
+/*
+#if USE_MMAP
+long page_size_;
+int device_fd;
+#endif
+*/
+static std::string const outputdir = "RESTORED_FILES/";
+
 
 struct FileSystemState {
 	private:

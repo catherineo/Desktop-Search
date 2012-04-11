@@ -5,3 +5,5 @@ OtherFiles/ext3grep-0.1.0/
 src/tags
 
 src/a.out
+
+src/*.swp
