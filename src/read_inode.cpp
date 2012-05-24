@@ -27,9 +27,6 @@
 
 typedef ext2_super_block ext3_super_block;
 
-std::ifstream device;
-std::string device_name;
-
 void init_consts()
 {
 	//Frequently used constants.
@@ -48,21 +45,22 @@ page_size_ = sysconf(_SC_PAGESIZE);
 
 	// Global arrays.
 	all_inodes = new Inode* [groups_];
+
 /*
 #if USE_MMAP
 all_mmaps = new void* [groups_];
 #endif
+*/
 	block_bitmap = new uint64_t* [groups_];
 	// We use this array to know of which groups we loaded the metadata. Therefore zero it out.
-	std::memset(block_bitmap, 0, sizeof(uint64_t*) * groups_);
+	memset(block_bitmap, 0, sizeof(uint64_t*) * groups_);
 	inode_bitmap = new uint64_t* [groups_];
 	assert((size_t)inode_size_ <= sizeof(Inode));
-	assert((size_t)inode_size_ == sizeof(Inode));inode_size_// This fails if kernel headers are used.
-		inodes_buf = new char[inodes_per_group_ * inode_size_];
-*/
+	assert((size_t)inode_size_ == sizeof(Inode));
+	// This fails if kernel headers are used.
+	inodes_buf = new char[inodes_per_group_ * inode_size_];
 	// Initialize group_descriptor_table.
 
-/*
 	// Calculate the block where the group descriptor table starts.
 	int const super_block_block = SUPER_BLOCK_OFFSET / block_size(super_block);
 	// The block following the superblock is the group descriptor table.
@@ -76,7 +74,6 @@ all_mmaps = new void* [groups_];
 	assert(device.good());
 	device.read(reinterpret_cast<char*>(group_descriptor_table), sizeof(ext3_group_desc) * groups_);
 	assert(device.good());
-*/
 
 }
 
@@ -125,8 +122,6 @@ int main(int arec, char *argv[])
 	std::cout << "inode size: " << inode_size(super_block) << std::endl;
 
 	std::cout << "inode_block_per_block: " << inode_blocks_per_group(super_block) << std::endl;
-
-
 }
 
 

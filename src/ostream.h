@@ -42,6 +42,7 @@ int inode_size(ext3_super_block const& super_block) { return EXT3_INODE_SIZE(&su
 int inode_blocks_per_group(ext3_super_block const& super_block) { return inodes_per_group(super_block) * inode_size(super_block) / block_size(super_block); }
 int groups(ext3_super_block const& super_block) { return inode_count(super_block) / inodes_per_group(super_block); }
 
+
 // Convert Big Endian to Little Endian.
 static inline __le32 be2le(__be32 v) { return __be32_to_cpu(v); }
 static inline __le16 be2le(__be16 v) { return __be16_to_cpu(v); }
@@ -49,7 +50,11 @@ static inline __u8 be2le(__u8 v) { return v; }
 
 static inline __le32 be2le(__s32 const& v) { return be2le(*reinterpret_cast<__be32 const*>(&v)); }
 
+int const SUPER_BLOCK_OFFSET = 1024;
+
+//===========================================================
 // Frequently used constant values from the superblock
+//
 ext3_super_block super_block;
 int groups_;
 int block_size_;
@@ -68,7 +73,18 @@ int journal_first_;
 int journal_sequence_;
 int journal_start_;
 
+static inline off_t block_to_offset(int block)
+{
+	  off_t offset = block;
+	    offset <<= block_size_log_;
+		  return offset;
+}
+//==============================================================
+//
 // Globally used variables
+//
+
+std::ifstream device;
 uint64_t** inode_bitmap;
 uint64_t** block_bitmap;
 Inode** all_inodes;
@@ -76,13 +92,15 @@ Inode** all_inodes;
 #if USE_MMAP
 void** all_mmaps;
 #endif
-/*
+*/
+
 ext3_group_desc* group_descriptor_table;
 char* inodes_buf;
 std::set<std::string> accepted_filenames;
 int no_filtering = 0;
 std::string device_name;
 uint32_t wrapped_journal_sequence = 0;
+
 /*
 #if USE_MMAP
 long page_size_;
@@ -90,6 +108,94 @@ int device_fd;
 #endif
 */
 static std::string const outputdir = "RESTORED_FILES/";
+
+//==============================================================
+//
+//load_meta_data
+//
+void load_meta_data(int group);
+
+void load_inodes(int group)
+{
+	if (!block_bitmap[group])
+		load_meta_data(group); 
+	// The start block of the inode table.
+	int block_number = group_descriptor_table[group].bg_inode_table;
+	/*
+#if USE_MMAP
+	int const blocks_per_page = page_size_ / block_size_;
+	off_t page = block_number / blocks_per_page;
+	off_t page_aligned_offset = page * page_size_;
+	off_t offset = block_to_offset(block_number); // Use mmap to avoid running out of memory.
+	all_mmaps[group] = mmap(NULL, inodes_per_group_ * inode_size_ + (offset - page_aligned_offset),
+			PROT_READ, MAP_PRIVATE | MAP_NORESERVE, device_fd, page_aligned_offset);
+	all_inodes[group] = reinterpret_cast<Inode*>((char*)all_mmaps[group] + (offset - page_aligned_offset));
+#else 
+*/
+
+	// Load all inodes into memory.
+	all_inodes[group] = new Inode[inodes_per_group_];
+	// sizeof(Inode) == inode_size_
+	device.seekg(block_to_offset(block_number));
+	device.read(reinterpret_cast<char*>(all_inodes[group]), inodes_per_group_ * inode_size_);
+	assert(device.good());
+
+	/*
+#ifdef DEBUG 
+	// We set this, so that we can find back where an inode struct came from 
+	// // during debugging of this program in gdb. It is not used anywhere.
+	for (int ino = 0; ino < inodes_per_group_; ++ino)
+		all_inodes[group][ino].set_reserved2(ino + 1 + group * inodes_per_group_);
+#endif
+#endif
+*/
+}
+
+void load_meta_data(int group)
+{
+	if (block_bitmap[group])// Already loaded?
+		return; // Load block bitmap.
+	block_bitmap[group] = new uint64_t[block_size_ / sizeof(uint64_t)];
+	device.seekg(block_to_offset(group_descriptor_table[group].bg_block_bitmap));
+	device.read(reinterpret_cast<char*>(block_bitmap[group]), block_size_); // Load inode bitmap.
+	inode_bitmap[group] = new uint64_t[block_size_ / sizeof(uint64_t)];
+	device.seekg(block_to_offset(group_descriptor_table[group].bg_inode_bitmap));
+	device.read(reinterpret_cast<char*>(inode_bitmap[group]), block_size_); // Load all inodes into memory.
+	load_inodes(group);
+}
+
+//=============================================================
+
+inline Inode& get_inode(int inode)
+{
+	int group = (inode - 1) / inodes_per_group_;
+	unsigned int bit = inode - 1 - group * inodes_per_group_;
+	assert(bit < 8U * block_size_);
+	if (block_bitmap[group] == NULL)
+		load_meta_data(group);
+	return all_inodes[group][bit];
+}
+
+void init_journal_consts(void)
+{
+	//Initialize journal constants
+	journal_block_size_ = be2le(journal_super_block.s_blocksize);
+	assert(journal_block_size_ == block_size_);
+	// Sorry, I'm trying to recover my own data-- have no time to deal with this.
+	journal_maxlen_ = be2le(journal_super_block.s_maxlen);
+	journal_first_ = be2le(journal_super_block.s_first);
+	journal_sequence_ = be2le(journal_super_block.s_sequence);
+	journal_start_ = be2le(journal_super_block.s_start);
+	journal_inode = get_inode(super_block.s_journal_inum);
+}
+
+unsigned char* get_block(int block, unsigned char* block_buf)
+{
+	device.seekg(block_to_offset(block));
+	device.read((char*)block_buf, block_size_);
+	assert(device.good());
+	return block_buf;
+}
 
 
 struct FileSystemState {
