@@ -55,6 +55,7 @@ all_mmaps = new void* [groups_];
 	// We use this array to know of which groups we loaded the metadata. Therefore zero it out.
 	memset(block_bitmap, 0, sizeof(uint64_t*) * groups_);
 	inode_bitmap = new uint64_t* [groups_];
+	//printf("%d %d\n",(size_t)inode_size_, sizeof(Inode));
 	assert((size_t)inode_size_ <= sizeof(Inode));
 	assert((size_t)inode_size_ == sizeof(Inode));
 	// This fails if kernel headers are used.
@@ -115,6 +116,7 @@ int main(int arec, char *argv[])
 	assert((inodes_per_group_ * inode_size_ - 1) / block_size_ + 1 == inode_blocks_per_group(super_block));
 
 
+	/*
 	std::cout << 0xEF53 << std::endl;
 	std::cout << super_block.s_magic << std::endl;
 	std::cout << super_block.s_creator_os << std::endl;
@@ -122,6 +124,32 @@ int main(int arec, char *argv[])
 	std::cout << "inode size: " << inode_size(super_block) << std::endl;
 
 	std::cout << "inode_block_per_block: " << inode_blocks_per_group(super_block) << std::endl;
+	*/
+#if DEBUG
+	std::cout << "journal_inum: " << super_block.s_journal_inum << std::endl;
+	std::cout << "journal_dev: " << super_block.s_journal_dev << std::endl;
+	std::cout << "inode_size: " << super_block.s_inode_size<< std::endl;
+#endif
+
+	if (super_block.s_journal_dev == 0 )
+	{
+		Inode& journal_inode = get_inode(super_block.s_journal_inum);
+		int first_block = journal_inode.block()[0];
+
+#if DEBUG
+		std::cout << "first_block_number: " << first_block << std::endl;
+		std::cout << "sizeof(journal_superblock_s): " << sizeof(journal_superblock_s) << std::endl;
+#endif
+		assert(first_block);
+		device.seekg(block_to_offset(first_block));
+		assert(device.good());
+		
+		device.read(reinterpret_cast<char*>(&journal_super_block), sizeof(journal_superblock_s));
+		assert(device.good());
+		assert(be2le(journal_super_block.s_header.h_magic) == JFS_MAGIC_NUMBER);
+		init_journal_consts();
+	}
+	dump_hex((unsigned char*)&journal_inode, inode_size_);
 }
 
 

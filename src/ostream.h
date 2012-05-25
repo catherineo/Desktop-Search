@@ -25,6 +25,8 @@
 
 #include "locate.h"
 
+#define DEBUG 1
+
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
@@ -42,6 +44,8 @@ int inode_size(ext3_super_block const& super_block) { return EXT3_INODE_SIZE(&su
 int inode_blocks_per_group(ext3_super_block const& super_block) { return inodes_per_group(super_block) * inode_size(super_block) / block_size(super_block); }
 int groups(ext3_super_block const& super_block) { return inode_count(super_block) / inodes_per_group(super_block); }
 
+inline Inode& get_inode(int inode);
+void init_journal_consts(void);
 
 // Convert Big Endian to Little Endian.
 static inline __le32 be2le(__be32 v) { return __be32_to_cpu(v); }
@@ -79,6 +83,31 @@ static inline off_t block_to_offset(int block)
 	    offset <<= block_size_log_;
 		  return offset;
 }
+
+static void dump_hex(unsigned char const* buf, size_t size)
+{
+	for (size_t addr = 0; addr < size; addr += 16)
+	{
+		std::cout << std::hex << std::setfill('0') << std::setw(4) << addr << " |";
+		int offset;
+		for (offset = 0; offset < 16 && addr + offset < size; ++offset)
+			std::cout << ' ' << std::hex << std::setfill('0') << std::setw(2) << (int)buf[addr + offset];
+		for (; offset < 16; ++offset)
+			std::cout << "   ";
+		std::cout << " | ";
+		for (int offset = 0; offset < 16 && addr + offset < size; ++offset)
+		{
+			unsigned char c = buf[addr + offset];
+			if (!std::isprint(c))
+				c = '.';
+			std::cout << c;
+		}
+		std::cout << '\n';
+	}
+}
+
+
+
 //==============================================================
 //
 // Globally used variables
@@ -123,13 +152,13 @@ void load_inodes(int group)
 	int block_number = group_descriptor_table[group].bg_inode_table;
 	/*
 #if USE_MMAP
-	int const blocks_per_page = page_size_ / block_size_;
-	off_t page = block_number / blocks_per_page;
-	off_t page_aligned_offset = page * page_size_;
-	off_t offset = block_to_offset(block_number); // Use mmap to avoid running out of memory.
-	all_mmaps[group] = mmap(NULL, inodes_per_group_ * inode_size_ + (offset - page_aligned_offset),
-			PROT_READ, MAP_PRIVATE | MAP_NORESERVE, device_fd, page_aligned_offset);
-	all_inodes[group] = reinterpret_cast<Inode*>((char*)all_mmaps[group] + (offset - page_aligned_offset));
+int const blocks_per_page = page_size_ / block_size_;
+off_t page = block_number / blocks_per_page;
+off_t page_aligned_offset = page * page_size_;
+off_t offset = block_to_offset(block_number); // Use mmap to avoid running out of memory.
+all_mmaps[group] = mmap(NULL, inodes_per_group_ * inode_size_ + (offset - page_aligned_offset),
+PROT_READ, MAP_PRIVATE | MAP_NORESERVE, device_fd, page_aligned_offset);
+all_inodes[group] = reinterpret_cast<Inode*>((char*)all_mmaps[group] + (offset - page_aligned_offset));
 #else 
 */
 
@@ -137,7 +166,9 @@ void load_inodes(int group)
 	all_inodes[group] = new Inode[inodes_per_group_];
 	// sizeof(Inode) == inode_size_
 	device.seekg(block_to_offset(block_number));
-	device.read(reinterpret_cast<char*>(all_inodes[group]), inodes_per_group_ * inode_size_);
+	//printf("%d\n", inode_size_);
+	device.read(reinterpret_cast<char*>(all_inodes[group]), inodes_per_group_ * inode_size_ );
+	//printf("the load_inodes is here\n");
 	assert(device.good());
 
 	/*
@@ -145,7 +176,7 @@ void load_inodes(int group)
 	// We set this, so that we can find back where an inode struct came from 
 	// // during debugging of this program in gdb. It is not used anywhere.
 	for (int ino = 0; ino < inodes_per_group_; ++ino)
-		all_inodes[group][ino].set_reserved2(ino + 1 + group * inodes_per_group_);
+	all_inodes[group][ino].set_reserved2(ino + 1 + group * inodes_per_group_);
 #endif
 #endif
 */
@@ -161,6 +192,7 @@ void load_meta_data(int group)
 	inode_bitmap[group] = new uint64_t[block_size_ / sizeof(uint64_t)];
 	device.seekg(block_to_offset(group_descriptor_table[group].bg_inode_bitmap));
 	device.read(reinterpret_cast<char*>(inode_bitmap[group]), block_size_); // Load all inodes into memory.
+	//printf("load_meta_data is good\n");
 	load_inodes(group);
 }
 
@@ -172,7 +204,13 @@ inline Inode& get_inode(int inode)
 	unsigned int bit = inode - 1 - group * inodes_per_group_;
 	assert(bit < 8U * block_size_);
 	if (block_bitmap[group] == NULL)
+	{
+		//printf("block_bitmap[group] is NULL\n");
 		load_meta_data(group);
+	}
+#if DEBUG
+	printf("group, bit(all_inodes[group][bit]): %d %d\n", group, bit);
+#endif
 	return all_inodes[group][bit];
 }
 
