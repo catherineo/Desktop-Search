@@ -235,6 +235,48 @@ unsigned char* get_block(int block, unsigned char* block_buf)
 	return block_buf;
 }
 
+// Return true if this inode is a directory
+static inline bool is_directory(Inode& inode)
+{
+	return (inode.mode() & 0xf000) == 0x4000;
+}
+
+static void print_directory_inode(int inode)
+{
+	init_directories();
+	int first_block = dir_inode_to_block(inode);
+	if (first_block == -1)
+	{
+		std::cout << "There is no directory block associated with inode " << inode << ".\n";
+		return;
+	}
+	std::cout << "The first block of the directory is " << first_block << ".\n";
+	inode_to_directory_type::iterator iter = inode_to_directory.find(inode);
+	assert(iter != inode_to_directory.end());
+	all_directories_type::iterator directory_iter = iter->second;
+	std::cout << "Inode " << inode << " is directory \"" << directory_iter->first << "\".\n";
+	if (commandline_dump_names)
+		dump_names();
+	else
+	{
+		Directory& directory(directory_iter->second);
+		for (std::list<DirectoryBlock>::iterator directory_block_iter = directory.blocks().begin();
+				directory_block_iter != directory.blocks().end(); ++directory_block_iter)
+		{
+			std::cout << "Directory block " << directory_block_iter->block() << ":\n";
+			std::cout << "          .-- File type in dir_entry (r=regular file, d=directory, l=symlink)\n";
+			std::cout << "          |          .-- D: Deleted ; R: Reallocated\n";
+			std::cout << "Indx Next |  Inode   | Deletion time                        Mode        File name\n";
+			std::cout << "==========+==========+----------------data-from-inode------+-----------+=========\n";
+			directory_block_iter->print();  
+		}
+	}
+}
+
+
+//=====================================================
+//ostream
+//
 
 struct FileSystemState {
 	private:
