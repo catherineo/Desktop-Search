@@ -7,3 +7,5 @@ src/tags
 src/a.out
 
 src/*.swp
+
+*~

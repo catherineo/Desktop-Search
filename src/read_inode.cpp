@@ -134,6 +134,7 @@ int main(int arec, char *argv[])
 	if (super_block.s_journal_dev == 0 )
 	{
 		Inode& journal_inode = get_inode(super_block.s_journal_inum);
+		std::cout << "super_block.s_journal_inum: " << super_block.s_journal_inum << std::endl;
 		int first_block = journal_inode.block()[0];
 
 #if DEBUG
@@ -146,6 +147,8 @@ int main(int arec, char *argv[])
 		
 		device.read(reinterpret_cast<char*>(&journal_super_block), sizeof(journal_superblock_s));
 		assert(device.good());
+
+		std::cout << journal_super_block << std::endl;
 		assert(be2le(journal_super_block.s_header.h_magic) == JFS_MAGIC_NUMBER);
 		init_journal_consts();
 	}
