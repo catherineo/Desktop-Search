@@ -148,11 +148,33 @@ int main(int arec, char *argv[])
 		device.read(reinterpret_cast<char*>(&journal_super_block), sizeof(journal_superblock_s));
 		assert(device.good());
 
-		std::cout << journal_super_block << std::endl;
+		//std::cout << journal_super_block << std::endl;
 		assert(be2le(journal_super_block.s_header.h_magic) == JFS_MAGIC_NUMBER);
 		init_journal_consts();
 	}
-	dump_hex((unsigned char*)&journal_inode, inode_size_);
+	//dump_hex((unsigned char*)&journal_inode, inode_size_);
+	
+#if DEBUG
+	for (int i = 0; i < groups_; ++i)
+	{
+		std::cout << "inode_table: " << group_descriptor_table[i].bg_inode_table << std::endl;
+	}
+#endif
+	
+	Inode& root_inode = get_inode(2);
+	if ( is_directory(root_inode) )
+	{
+		//read_directory();
+		std::cout << "the block" << root_inode.block()[0] << std::endl;
+		
+		unsigned char* block = new unsigned char[block_size_];
+		device.seekg(block_to_offset(root_inode.block()[0]));
+
+		std::cout << root_inode.block()[0] << std::endl;
+		std::cout << block_to_offset(root_inode.block()[0]) << std::endl;
+		device.read(reinterpret_cast<char*>(block),block_size_);
+		dump_hex(block, block_size_);
+	}
 }
 
 

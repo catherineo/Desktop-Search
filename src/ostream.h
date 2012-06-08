@@ -25,7 +25,7 @@
 
 #include "locate.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
@@ -241,6 +241,7 @@ static inline bool is_directory(Inode& inode)
 	return (inode.mode() & 0xf000) == 0x4000;
 }
 
+/*
 static void print_directory_inode(int inode)
 {
 	init_directories();
@@ -272,6 +273,7 @@ static void print_directory_inode(int inode)
 		}
 	}
 }
+*/
 
 
 //=====================================================
