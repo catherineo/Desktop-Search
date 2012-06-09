@@ -164,6 +164,7 @@ int main(int arec, char *argv[])
 	Inode& root_inode = get_inode(2);
 	if ( is_directory(root_inode) )
 	{
+		char root_prefix[2] = "/";
 		//read_directory();
 		std::cout << "the block" << root_inode.block()[0] << std::endl;
 		
@@ -173,7 +174,9 @@ int main(int arec, char *argv[])
 		std::cout << root_inode.block()[0] << std::endl;
 		std::cout << block_to_offset(root_inode.block()[0]) << std::endl;
 		device.read(reinterpret_cast<char*>(block),block_size_);
-		dump_hex(block, block_size_);
+		//dump_hex(block, block_size_);
+		std::cout << "file type" << '\t' << "inode" << '\t' << "name" << std::endl;
+		read_current_directory(block, block_size_, root_prefix);
 	}
 }
 

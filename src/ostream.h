@@ -46,6 +46,8 @@ int groups(ext3_super_block const& super_block) { return inode_count(super_block
 
 inline Inode& get_inode(int inode);
 void init_journal_consts(void);
+int read_current_directory(unsigned char * block, size_t block_size, char* prefix);
+int read_directory_inode(int inode_num, char* prefix);
 
 // Convert Big Endian to Little Endian.
 static inline __le32 be2le(__be32 v) { return __be32_to_cpu(v); }
@@ -241,39 +243,131 @@ static inline bool is_directory(Inode& inode)
 	return (inode.mode() & 0xf000) == 0x4000;
 }
 
-/*
-static void print_directory_inode(int inode)
+bool entry_cmp_func(ext3_dir_entry_2 a, ext3_dir_entry_2 b)
 {
-	init_directories();
-	int first_block = dir_inode_to_block(inode);
-	if (first_block == -1)
+	return a.file_type < b.file_type;
+}
+
+//print the file in current block which is a directory type block
+int read_current_directory(unsigned char * block, size_t block_size, char *prefix)
+{
+	/*
+	std::cout << "file type" << '\t' << "inode" << '\t' << "name" << std::endl;
+	size_t base = 0;
+	while (base < block_size &&(int)(block[base+4]))
 	{
-		std::cout << "There is no directory block associated with inode " << inode << ".\n";
-		return;
-	}
-	std::cout << "The first block of the directory is " << first_block << ".\n";
-	inode_to_directory_type::iterator iter = inode_to_directory.find(inode);
-	assert(iter != inode_to_directory.end());
-	all_directories_type::iterator directory_iter = iter->second;
-	std::cout << "Inode " << inode << " is directory \"" << directory_iter->first << "\".\n";
-	if (commandline_dump_names)
-		dump_names();
-	else
-	{
-		Directory& directory(directory_iter->second);
-		for (std::list<DirectoryBlock>::iterator directory_block_iter = directory.blocks().begin();
-				directory_block_iter != directory.blocks().end(); ++directory_block_iter)
+		std::cout << (int)block[base + 7] << "\t\t";
+		std::cout << *(int*)reinterpret_cast<__u32*>(block + base) << '\t';
+		size_t signal_up_bound = base + block[base + 4];
+		char file_name[EXT2_NAME_LEN];
+		char *f;
+		for (f = file_name, base += 8; base < signal_up_bound; f++, base++)
 		{
-			std::cout << "Directory block " << directory_block_iter->block() << ":\n";
-			std::cout << "          .-- File type in dir_entry (r=regular file, d=directory, l=symlink)\n";
-			std::cout << "          |          .-- D: Deleted ; R: Reallocated\n";
-			std::cout << "Indx Next |  Inode   | Deletion time                        Mode        File name\n";
-			std::cout << "==========+==========+----------------data-from-inode------+-----------+=========\n";
-			directory_block_iter->print();  
+			*f = block[base];
+		}
+		*f = '\0';
+		std::cout << file_name << std::endl;
+	}
+	*/
+	int prefix_len = strlen(prefix);
+	std::vector <ext3_dir_entry_2> current_directory_entries;
+	size_t base = 0;
+	while (base < block_size ) 
+	{
+		ext3_dir_entry_2 entry;
+		entry.inode = *reinterpret_cast<__u32*>(block+base);
+		entry.rec_len = *reinterpret_cast<__u16*>(block+base+4);
+		entry.name_len = (__u8)block[base + 6];
+		entry.file_type = (__u8)block[base + 7];
+		assert(entry.name_len < 255);
+		unsigned char *f = block + base + 8;
+		char *e = entry.name;
+		for (int i = 0; i < entry.name_len; ++i )
+		{
+			*(e++) = (char)*(f++);
+		}
+		*e = '\0';
+		base += entry.rec_len;
+		if (entry.rec_len == 0 ) break;
+		//if (entry.name[0] == '.' && entry.name_len == 1 ) continue;
+		if (strcmp(entry.name, "..") == 0 ) continue;
+		if (strcmp(entry.name, "lost+found") == 0 ) continue;
+
+		current_directory_entries.push_back(entry);
+	}
+	std::sort(current_directory_entries.begin(), current_directory_entries.end(), entry_cmp_func);
+
+	for (int i = 0; i <current_directory_entries.size(); ++i)
+	{
+		if (current_directory_entries[i].file_type & 2 && strcmp(current_directory_entries[i].name, ".") )
+		{
+			char *prefix_this_directory= new char[prefix_len + current_directory_entries[i].name_len + 2];
+			strcpy(prefix_this_directory, prefix);
+			strcat(prefix_this_directory, current_directory_entries[i].name);
+			strcat(prefix_this_directory, "/");
+
+			int ret = read_directory_inode(current_directory_entries[i].inode, prefix_this_directory);
+			delete prefix_this_directory;
+			if (ret < 0 ) return ret;
+		}
+		else
+		{
+			std::cout << (int)current_directory_entries[i].file_type << "\t\t" << current_directory_entries[i].inode << "\t" << prefix << current_directory_entries[i].name << std::endl;
 		}
 	}
+	return 0;
 }
-*/
+
+int read_directory_inode(int inode_num, char * prefix)
+{
+	Inode& directory_inode = get_inode(inode_num);
+	if (is_directory(directory_inode) )
+	{
+		unsigned char * block = new unsigned char[block_size_];
+		device.seekg(block_to_offset(directory_inode.block()[0]));
+		device.read(reinterpret_cast<char*>(block), block_size_);
+		read_current_directory(block, block_size_, prefix);
+	}
+	else 
+	{
+		return -1;
+	}
+	return 0;
+}
+
+/*
+   static void print_directory_inode(int inode)
+   {
+   init_directories();
+   int first_block = dir_inode_to_block(inode);
+   if (first_block == -1)
+   {
+   std::cout << "There is no directory block associated with inode " << inode << ".\n";
+   return;
+   }
+   std::cout << "The first block of the directory is " << first_block << ".\n";
+   inode_to_directory_type::iterator iter = inode_to_directory.find(inode);
+   assert(iter != inode_to_directory.end());
+   all_directories_type::iterator directory_iter = iter->second;
+   std::cout << "Inode " << inode << " is directory \"" << directory_iter->first << "\".\n";
+   if (commandline_dump_names)
+   dump_names();
+   else
+   {
+   Directory& directory(directory_iter->second);
+   for (std::list<DirectoryBlock>::iterator directory_block_iter = directory.blocks().begin();
+   directory_block_iter != directory.blocks().end(); ++directory_block_iter)
+   {
+   std::cout << "Directory block " << directory_block_iter->block() << ":\n";
+   std::cout << "          .-- File type in dir_entry (r=regular file, d=directory, l=symlink)\n";
+   std::cout << "          |          .-- D: Deleted ; R: Reallocated\n";
+   std::cout << "Indx Next |  Inode   | Deletion time                        Mode        File name\n";
+   std::cout << "==========+==========+----------------data-from-inode------+-----------+=========\n";
+   directory_block_iter->print();  
+   }
+   }
+   }
+   */
 
 
 //=====================================================
