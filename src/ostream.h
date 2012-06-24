@@ -22,6 +22,7 @@
 #include <list>
 #include <limits>
 #include <sstream>
+#include <algorithm>
 #include "debug.h"
 
 #include "locate.h"
@@ -51,6 +52,7 @@ inline Inode& get_inode(int inode);
 void init_journal_consts(void);
 int read_current_directory(unsigned char * block, size_t block_size, char* prefix);
 int read_directory_inode(int inode_num, char* prefix);
+int read_file_inode(int inode_num);
 
 // Convert Big Endian to Little Endian.
 static inline __le32 be2le(__be32 v) { return __be32_to_cpu(v); }
@@ -251,6 +253,8 @@ bool entry_cmp_func(ext3_dir_entry_2 a, ext3_dir_entry_2 b)
 	return a.file_type < b.file_type;
 }
 
+unsigned char * file_content;
+
 //print the file in current block which is a directory type block
 int read_current_directory(unsigned char * block, size_t block_size, char *prefix)
 {
@@ -298,6 +302,7 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 
 		current_directory_entries.push_back(entry);
 	}
+	delete block;
 	std::sort(current_directory_entries.begin(), current_directory_entries.end(), entry_cmp_func);
 
 	for (int i = 0; i <current_directory_entries.size(); ++i)
@@ -308,7 +313,7 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 			strcpy(prefix_this_directory, prefix);
 			strcat(prefix_this_directory, current_directory_entries[i].name);
 			strcat(prefix_this_directory, "/");
-			directory_file << prefix_this_directory << "." << '\t' << current_directory_entries[i].name << std::endl;
+			directory_file << "2" << '\t' <<  prefix_this_directory << "." << '\t' << current_directory_entries[i].name << std::endl;
 
 			int ret = read_directory_inode(current_directory_entries[i].inode, prefix_this_directory);
 			delete prefix_this_directory;
@@ -320,7 +325,11 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 			std::cout << (int)current_directory_entries[i].file_type << "\t\t" << current_directory_entries[i].inode << "\t" << prefix << current_directory_entries[i].name << std::endl;
 			if (strcmp(current_directory_entries[i].name, "."))
 			{
-				directory_file << prefix << current_directory_entries[i].name << "\t" << current_directory_entries[i].name << std::endl;
+				file_content = new unsigned char[block_size_];
+				//std::cout << current_directory_entries[i].inode<< std::endl;
+				read_file_inode(current_directory_entries[i].inode);
+				directory_file << "1" << '\t' << prefix << current_directory_entries[i].name << "\t" << current_directory_entries[i].name << '\t' << file_content << std::endl;
+				delete file_content;
 			}
 		}
 	}
@@ -341,6 +350,38 @@ int read_directory_inode(int inode_num, char * prefix)
 	{
 		return -1;
 	}
+	return 0;
+}
+
+int read_file_inode(int inode_num)
+{
+	Inode& file_inode = get_inode(inode_num);
+	__u32 i_size = 0;
+	if ( !is_directory(file_inode) )
+	{
+		//std::cout << inode_num << std::endl;
+		if(file_inode.block()[0])
+		{
+			device.seekg(block_to_offset(file_inode.block()[0]));
+			//std::cout << block_to_offset(file_inode.block()[0]) << " "<< file_inode.block()[0] << std::endl;
+			device.read(reinterpret_cast<char*>(file_content), block_size_);
+			//std::cout << 'x' << std::endl;
+			i_size = file_inode.size() > (__u32)block_size_ ? (__u32)block_size_ : file_inode.size();
+			//std::cout << 'x' << std::endl;
+			bool isASCII = true;
+			for (int i = 0; i < std::min(100, (int)i_size) && isASCII ; ++i)
+			{
+				if ( !(0 <= (unsigned int)file_content[i] && (unsigned int)file_content[i] < 128 ) )
+					isASCII = false;
+			}
+			if ( !isASCII )
+				i_size = 0;
+		}
+
+		//std::cout<<(int)i_size << std::endl;
+	}
+	file_content[(int)i_size] = '\0';
+	//std::cout << file_content << std::endl;
 	return 0;
 }
 
