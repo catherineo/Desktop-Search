@@ -14,6 +14,7 @@
 #include <cerrno>
 #include <fstream>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <set>
 #include <map>
@@ -29,6 +30,8 @@
 
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
+
+std::ofstream directory_file;
 
 // Super block accessors
 int inode_count(ext3_super_block const& super_block) { return super_block.s_inodes_count; }
@@ -305,14 +308,20 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 			strcpy(prefix_this_directory, prefix);
 			strcat(prefix_this_directory, current_directory_entries[i].name);
 			strcat(prefix_this_directory, "/");
+			directory_file << prefix_this_directory << "." << '\t' << current_directory_entries[i].name << std::endl;
 
 			int ret = read_directory_inode(current_directory_entries[i].inode, prefix_this_directory);
 			delete prefix_this_directory;
-			if (ret < 0 ) return ret;
+			if (ret < 0 ) 
+				return ret;
 		}
 		else
 		{
 			std::cout << (int)current_directory_entries[i].file_type << "\t\t" << current_directory_entries[i].inode << "\t" << prefix << current_directory_entries[i].name << std::endl;
+			if (strcmp(current_directory_entries[i].name, "."))
+			{
+				directory_file << prefix << current_directory_entries[i].name << "\t" << current_directory_entries[i].name << std::endl;
+			}
 		}
 	}
 	return 0;

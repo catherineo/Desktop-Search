@@ -79,11 +79,11 @@ all_mmaps = new void* [groups_];
 }
 
 
-int main(int arec, char *argv[])
+int read_inode(char *argv)
 {
 	Debug(debug::init());
 
-	device_name = argv[1];
+	device_name = argv;
 
 	device.open(device_name.c_str());
 	assert( device.good() );
@@ -170,6 +170,7 @@ int main(int arec, char *argv[])
 		
 		unsigned char* block = new unsigned char[block_size_];
 		device.seekg(block_to_offset(root_inode.block()[0]));
+		directory_file.open("directory_file");
 
 		std::cout << root_inode.block()[0] << std::endl;
 		std::cout << block_to_offset(root_inode.block()[0]) << std::endl;
@@ -177,6 +178,7 @@ int main(int arec, char *argv[])
 		//dump_hex(block, block_size_);
 		std::cout << "file type" << '\t' << "inode" << '\t' << "name" << std::endl;
 		read_current_directory(block, block_size_, root_prefix);
+		directory_file.close();
 	}
 }
 
