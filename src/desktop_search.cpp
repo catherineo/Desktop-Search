@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <cstdio>
+#include "DB.h"
 using namespace std;
 
 class GlobalArgs
@@ -15,7 +16,7 @@ public:
 }globalArgs;
 
 static const char *optString = "r:i:s:vh?";
-int read_inode(char *argv);
+int read_inode(char *argv, DB db);
 int index();
 int search(char ** query, int numQuery);
 
@@ -60,12 +61,26 @@ int main(int argc, char *argv[])
 
 	globalArgs.query = argv + optind;
 	globalArgs.numQuery = argc - optind;
-
+	DB db;
+	if(!db.isCreated())
+	{
+		db.open();
+		if(globalArgs.deviceName)
+		{
+			read_inode(globalArgs.deviceName, db);
+		}
+		db.close();
+	}
+	string q;
+	while(cout << ">>" && cin >> q && q != "exit")
+	{
+		db.search(q);
+	}
+/*
 	if (globalArgs.deviceName)
 	{
 		read_inode(globalArgs.deviceName);
 	}
-
 	if (globalArgs.isIndex)
 	{
 		index();
@@ -75,4 +90,5 @@ int main(int argc, char *argv[])
 	{
 		search(globalArgs.query, globalArgs.numQuery);
 	}
+	*/
 }

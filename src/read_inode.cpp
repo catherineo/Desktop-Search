@@ -24,6 +24,7 @@
 #include "debug.h"
 #include "ostream.h"
 #include "locate.h"
+#include "DB.h"
 
 typedef ext2_super_block ext3_super_block;
 
@@ -79,7 +80,7 @@ all_mmaps = new void* [groups_];
 }
 
 
-int read_inode(char *argv)
+int read_inode(char *argv, DB db)
 {
 	Debug(debug::init());
 
@@ -177,7 +178,7 @@ int read_inode(char *argv)
 		device.read(reinterpret_cast<char*>(block),block_size_);
 		//dump_hex(block, block_size_);
 		std::cout << "file type" << '\t' << "inode" << '\t' << "name" << std::endl;
-		read_current_directory(block, block_size_, root_prefix);
+		read_current_directory(block, block_size_, root_prefix, db);
 		directory_file.close();
 	}
 }

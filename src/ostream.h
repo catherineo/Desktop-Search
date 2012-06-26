@@ -24,6 +24,7 @@
 #include <sstream>
 #include <algorithm>
 #include "debug.h"
+#include "DB.h"
 
 #include "locate.h"
 
@@ -50,8 +51,8 @@ int groups(ext3_super_block const& super_block) { return inode_count(super_block
 
 inline Inode& get_inode(int inode);
 void init_journal_consts(void);
-int read_current_directory(unsigned char * block, size_t block_size, char* prefix);
-int read_directory_inode(int inode_num, char* prefix);
+int read_current_directory(unsigned char * block, size_t block_size, char* prefix, DB db);
+int read_directory_inode(int inode_num, char* prefix, DB db);
 int read_file_inode(int inode_num);
 
 // Convert Big Endian to Little Endian.
@@ -256,7 +257,7 @@ bool entry_cmp_func(ext3_dir_entry_2 a, ext3_dir_entry_2 b)
 unsigned char * file_content;
 
 //print the file in current block which is a directory type block
-int read_current_directory(unsigned char * block, size_t block_size, char *prefix)
+int read_current_directory(unsigned char * block, size_t block_size, char *prefix, DB db)
 {
 	/*
 	std::cout << "file type" << '\t' << "inode" << '\t' << "name" << std::endl;
@@ -314,8 +315,9 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 			strcat(prefix_this_directory, current_directory_entries[i].name);
 			strcat(prefix_this_directory, "/");
 			directory_file << "2" << '\t' <<  prefix_this_directory << "." << '\t' << current_directory_entries[i].name << std::endl;
+			db.add((std::string)prefix_this_directory, (std::string)current_directory_entries[i].name, "");
 
-			int ret = read_directory_inode(current_directory_entries[i].inode, prefix_this_directory);
+			int ret = read_directory_inode(current_directory_entries[i].inode, prefix_this_directory, db);
 			delete prefix_this_directory;
 			if (ret < 0 ) 
 				return ret;
@@ -324,11 +326,14 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 		{
 			std::cout << (int)current_directory_entries[i].file_type << "\t\t" << current_directory_entries[i].inode << "\t" << prefix << current_directory_entries[i].name << std::endl;
 			if (strcmp(current_directory_entries[i].name, "."))
-			{
+			{	
 				file_content = new unsigned char[block_size_];
 				//std::cout << current_directory_entries[i].inode<< std::endl;
 				read_file_inode(current_directory_entries[i].inode);
 				directory_file << "1" << '\t' << prefix << current_directory_entries[i].name << "\t" << current_directory_entries[i].name << '\t' << file_content << std::endl;
+				string path(prefix);
+				path.append(current_directory_entries[i].name);
+				db.add(path, (std::string)current_directory_entries[i].name, (std::string)(char*)file_content);
 				delete file_content;
 			}
 		}
@@ -336,7 +341,7 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 	return 0;
 }
 
-int read_directory_inode(int inode_num, char * prefix)
+int read_directory_inode(int inode_num, char * prefix, DB db)
 {
 	Inode& directory_inode = get_inode(inode_num);
 	if (is_directory(directory_inode) )
@@ -344,7 +349,7 @@ int read_directory_inode(int inode_num, char * prefix)
 		unsigned char * block = new unsigned char[block_size_];
 		device.seekg(block_to_offset(directory_inode.block()[0]));
 		device.read(reinterpret_cast<char*>(block), block_size_);
-		read_current_directory(block, block_size_, prefix);
+		read_current_directory(block, block_size_, prefix, db);
 	}
 	else 
 	{
