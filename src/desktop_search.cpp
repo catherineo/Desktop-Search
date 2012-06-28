@@ -15,7 +15,7 @@ public:
 	
 }globalArgs;
 
-static const char *optString = "r:i:s:vh?";
+static const char *optString = "r:vh?";
 int read_inode(char *argv, DB db);
 int index();
 int search(char ** query, int numQuery);
@@ -32,7 +32,9 @@ int initGlobalArgs()
 
 void displayUsage()
 {
-	printf("Usage\n");
+	cout << "Usage ./desktop_search [-r file]" << endl;
+	cout << "If use option -r you must point a dev file to be read" << endl;
+	cout << "Otherwise the database will use the last point file" << endl << endl;
 }
 
 int main(int argc, char *argv[])
@@ -46,9 +48,6 @@ int main(int argc, char *argv[])
 		{
 			case 'r':
 				globalArgs.deviceName = optarg;
-				break;
-			case 'i':
-				globalArgs.isIndex = 0;
 				break;
 			case 'h':
 			case '?':
