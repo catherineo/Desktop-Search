@@ -44,7 +44,11 @@ void DB::add(string path, string name, string content)
 	Xapian::Document doc;
 	doc.set_data(path);
 	indexer.set_document(doc);
-	indexer.index_text(name, 1, "N");
+	int l = name.length();
+	for(int i = 0; i < l; i++)
+	{
+		indexer.index_text(name.substr(i, l - i), 1, "N");
+	}
 	indexer.index_text(path, 1, "P");
 	indexer.index_text(content, 1, "C");
 	wdb.add_document(doc);
@@ -66,7 +70,7 @@ vector <list <string> > DB::search(string querystr)
 	qp.set_database(db);
 	query = qp.parse_query(querystr, Xapian::QueryParser::FLAG_PARTIAL | Xapian::QueryParser::FLAG_DEFAULT, "N");
 	enquire->set_query(query);
-	result = enquire->get_mset(0, 10);
+	result = enquire->get_mset(0, db.get_doccount());
 	list <string> name;
 	for(Xapian::MSetIterator itr = result.begin(); itr != result.end(); itr++)
 	{
@@ -76,7 +80,7 @@ vector <list <string> > DB::search(string querystr)
 	}	
 	query = qp.parse_query(querystr, Xapian::QueryParser::FLAG_DEFAULT, "C");
 	enquire->set_query(query);
-	result = enquire->get_mset(0, 10);
+	result = enquire->get_mset(0, db.get_doccount());
 	list <string> content;
 	for(Xapian::MSetIterator itr = result.begin(); itr != result.end(); itr++)
 	{

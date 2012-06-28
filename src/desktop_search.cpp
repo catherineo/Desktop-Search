@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 		db.close();
 	}
 	string q;
-	while(cout << ">>" && cin >> q && q != "exit")
+	while(cout << ">>" && getline(cin, q) && q != "exit")
 	{
 		db.search(q);
 	}
