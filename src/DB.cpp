@@ -72,16 +72,22 @@ vector <list <string> > DB::search(string querystr)
 	enquire->set_query(query);
 	result = enquire->get_mset(0, db.get_doccount());
 	list <string> name;
+	cout << "filename:" << endl;
 	for(Xapian::MSetIterator itr = result.begin(); itr != result.end(); itr++)
 	{
 		Xapian::Document doc = itr.get_document();
-		cout<<doc.get_data()<<endl;
+		//cout<<doc.get_data()<<endl;
+		string p = doc.get_data();
+		int light = p.rfind(querystr);
+		int len = querystr.length();
+		cout << p.substr(0, light) << "\033[1m\033[31m" << p.substr(light, len) << "\033[0m" << p.substr(light + len, p.length() - light - len + 1) << endl;
 		name.push_back(doc.get_data());
 	}	
 	query = qp.parse_query(querystr, Xapian::QueryParser::FLAG_DEFAULT, "C");
 	enquire->set_query(query);
 	result = enquire->get_mset(0, db.get_doccount());
 	list <string> content;
+	cout << "content:" << endl;
 	for(Xapian::MSetIterator itr = result.begin(); itr != result.end(); itr++)
 	{
 		Xapian::Document doc = itr.get_document();
