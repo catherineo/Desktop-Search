@@ -78,7 +78,9 @@ vector <list <string> > DB::search(string querystr)
 		Xapian::Document doc = itr.get_document();
 		//cout<<doc.get_data()<<endl;
 		string p = doc.get_data();
-		int light = p.rfind(querystr);
+		int n = p.rfind("/") + 1;
+		if(n == p.length()) n = p.substr(0, p.length() - 1).rfind("/") + 1;
+		int light = p.substr(n, p.length() - n).find(querystr) + n;
 		int len = querystr.length();
 		cout << p.substr(0, light) << "\033[1m\033[31m" << p.substr(light, len) << "\033[0m" << p.substr(light + len, p.length() - light - len + 1) << endl;
 		name.push_back(doc.get_data());
