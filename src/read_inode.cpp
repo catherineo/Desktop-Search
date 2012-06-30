@@ -167,19 +167,20 @@ int read_inode(char *argv, DB db)
 	{
 		char root_prefix[2] = "/";
 		//read_directory();
-		std::cout << "the block" << root_inode.block()[0] << std::endl;
+		//std::cout << "the block" << root_inode.block()[0] << std::endl;
 		
 		unsigned char* block = new unsigned char[block_size_];
 		device.seekg(block_to_offset(root_inode.block()[0]));
 		directory_file.open("directory_file");
 
-		std::cout << root_inode.block()[0] << std::endl;
-		std::cout << block_to_offset(root_inode.block()[0]) << std::endl;
+		//std::cout << root_inode.block()[0] << std::endl;
+		//std::cout << block_to_offset(root_inode.block()[0]) << std::endl;
 		device.read(reinterpret_cast<char*>(block),block_size_);
 		//dump_hex(block, block_size_);
 		std::cout << "file type" << '\t' << "inode" << '\t' << "name" << std::endl;
 		read_current_directory(block, block_size_, root_prefix, db);
 		directory_file.close();
+		std::cout << sum_files  << " files had been indexed" <<std::endl;
 	}
 }
 

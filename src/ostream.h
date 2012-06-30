@@ -137,6 +137,7 @@ std::set<std::string> accepted_filenames;
 int no_filtering = 0;
 std::string device_name;
 uint32_t wrapped_journal_sequence = 0;
+int sum_files = 0;
 
 /*
 #if USE_MMAP
@@ -314,7 +315,7 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 			strcpy(prefix_this_directory, prefix);
 			strcat(prefix_this_directory, current_directory_entries[i].name);
 			strcat(prefix_this_directory, "/");
-			directory_file << "2" << '\t' <<  prefix_this_directory << "." << '\t' << current_directory_entries[i].name << std::endl;
+			//directory_file << "2" << '\t' <<  prefix_this_directory << "." << '\t' << current_directory_entries[i].name << std::endl;
 			db.add((std::string)prefix_this_directory, (std::string)current_directory_entries[i].name, "");
 
 			int ret = read_directory_inode(current_directory_entries[i].inode, prefix_this_directory, db);
@@ -330,7 +331,7 @@ int read_current_directory(unsigned char * block, size_t block_size, char *prefi
 				file_content = new unsigned char[block_size_];
 				//std::cout << current_directory_entries[i].inode<< std::endl;
 				read_file_inode(current_directory_entries[i].inode);
-				directory_file << "1" << '\t' << prefix << current_directory_entries[i].name << "\t" << current_directory_entries[i].name << '\t' << file_content << std::endl;
+				//directory_file << "1" << '\t' << prefix << current_directory_entries[i].name << "\t" << current_directory_entries[i].name << '\t' << file_content << std::endl;
 				string path(prefix);
 				path.append(current_directory_entries[i].name);
 				db.add(path, (std::string)current_directory_entries[i].name, (std::string)(char*)file_content);
@@ -360,6 +361,7 @@ int read_directory_inode(int inode_num, char * prefix, DB db)
 
 int read_file_inode(int inode_num)
 {
+	sum_files++;
 	Inode& file_inode = get_inode(inode_num);
 	__u32 i_size = 0;
 	if ( !is_directory(file_inode) )
